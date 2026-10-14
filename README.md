@@ -1,6 +1,6 @@
 # dsh-tavern-mvupanel
 
-给 [DSH Tavern](https://github.com/flizzywine/dsh-tavern) 用的 **MVU 面板插件**：在 Tavern 的设置页导入人物卡，
+给 [DSH Tavern](https://github.com/flizzywine/dsh-tavern) 用的 **MVU 面板插件**：在 Tavern 的设置-mvu面板-导入人物卡，
 插件用纯程序把它转换成**可以直接开局的 MVU 卡**——开场自带 `<initvar>` 与面板入口，后台结算按规则更新变量，
 正文里的面板读变量显示状态。
 
