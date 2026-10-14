@@ -1,0 +1,61 @@
+{
+  "name": "dsh-tavern-mvupanel",
+  "version": "1.0.0",
+  "description": "DSH Tavern MVU 面板插件：在插件页导入人物卡，纯程序生成可直接开局的 MVU 面板卡（零模型调用、初始化零 token）。MVU panel for DSH Tavern: import a character card in the plugin page and get a ready-to-play MVU card without any model call.",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.mjs",
+    "client.js",
+    "lib",
+    "assets",
+    "PERMISSIONS.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test/run.mjs"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swp-z/dsh-tavern-mvupanel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/swp-z/dsh-tavern-mvupanel/issues"
+  },
+  "homepage": "https://github.com/swp-z/dsh-tavern-mvupanel#readme",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-tavern",
+    "tavern",
+    "character-card",
+    "mvu",
+    "panel",
+    "sillytavern"
+  ],
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "dsh-tavern-plugin"
+      ]
+    },
+    "compatibility": {
+      "dsh": ">=0.1.5-rc.2 <0.2.0",
+      "dshReleases": {
+        "0.1.5-rc.2": "compatible"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

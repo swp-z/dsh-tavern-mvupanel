@@ -1,0 +1,351 @@
+<!--
+  RP 侧边栏 MVU 面板外观（技能/卡版本见 creator_notes）
+
+  R32（数值区 4 轴）：
+    - 数值区由 3 轴扩到 4 轴：好感度 / 发情度（原「欲情」，变量路径同步改名）/ 高潮度 / 射精度（$426：交合中男性对象的射精累积进度，与高潮度双双临近 100 时下一轮同时高潮射精）。
+    - 4 行共用同一个 grid，左列标签显式占位（状态 row1、性经验 row2–3、性癖 row4），逐行对齐不依赖自动排版。
+    - 数值区整体缩放（行高 42→36px、字号 16.5→15.5px、条高 8→7px），多一行后卡高基本不变。  R31：
+    - 芯片清洗加固（全角/半角包裹符号、项目符号、切分符、去重、纯符号丢弃）。
+    - 芯片不得撑破列宽；标签行换行后必须把行推高，绝不能压住下一行
+      （行高必须靠 grid-auto-rows: minmax(42px,auto) 自适应，禁用固定行高）。
+  R26：
+    - 档案列表高度下限抬到「一张完整展开卡」的高度（实测 687px → 取 820px），不再只露半张卡。
+    - 性癖与身体四部位的书写规范在 update-rules.md 中重写（防重复挑取 + 色气示例）。
+  R25（重大结构调整）：
+    - **在场卡整体并入档案卡**，面板只保留「规则列表 + 角色档案」两段，不再有独立的在场卡模块。
+    - 档案卡 22 字段，分三类：长期（跨轮保留）/ 临时（本轮有效，离场清空）/ 标记（在场）。
+    - 档案列表由面板脚本按「在场」排序（在场置顶）并在在场状态跳变时展开/折叠一次。
+    - 移除「位置」与「立绘」两个字段。
+
+  R27：`$419` 由「生育状态」升级为「性经验」—— 主档位（处子 / 开苞 / 经验丰富）+ 累积经历标签
+       （菊穴开发 / 子宫高潮 / 户外露出 / 怀孕中 …），青绿芯片类名由 .tag-fert 改 .tag-exp。
+  R24：档案卡删除数值轴「堕落度」（$419 不再接进度条），改为繁育阶段标签「生育状态」——
+       离散字符串（处子 / 开苞 / 经验丰富 / 怀孕中 / 孕后 …），走 .mvu-tags + paintTags 渲染成
+       青绿芯片；无值时该行只剩抬头，不画空芯片。
+  R23：性癖标签化 + 提交写法修正（成员增删 replace 整条数组、禁 insert/add 到索引、只提交变化字段）。
+       R25 补充：性癖已去掉爱心图标，仅保留紫粉芯片。
+  R22：三段折叠；R21：部位四字段与数值轴。
+  R25 字体：面板内字号全局 +4px（基准 15 → 19px）。
+-->
+<div class="mvu-panel">
+  <div class="mvu-head">
+    <div>
+      <div class="mvu-title">MVU 状态面板</div>
+      <div class="mvu-sub">&#36;1</div>
+    </div>
+    <div class="mvu-counts">
+      <span class="mvu-count">规则 <b>&#36;5</b></span>
+      <span class="mvu-count">在场 <b>&#36;6</b></span>
+      <span class="mvu-count">档案 <b>&#36;7</b></span>
+    </div>
+  </div>
+
+  <details class="mvu-fold" open>
+    <summary class="mvu-sec">
+      <span class="mvu-caret"></span>
+      <span class="mvu-num">1</span><span class="mvu-sec-title">规则列表</span>
+      <span class="mvu-chip mvu-chip-warn">&#36;8 待生效</span>
+      <span class="mvu-sp"></span>
+      <button class="mvu-btn mvu-btn-add" data-mvu-act="add-rule" type="button">+ 新增</button>
+      <span class="mvu-rule-line"></span>
+    </summary>
+    <div class="mvu-fold-body">
+      <ul class="mvu-rules" data-mvu-list="/规则列表/条目" data-mvu-empty="暂无已写入的规则"><template>
+        <li class="mvu-rule">
+          <span class="mvu-rule-txt">&#36;201</span>
+          <span class="mvu-rule-state mvu-state-&#36;202">&#36;202</span>
+          <span class="mvu-rule-acts">
+            <button class="mvu-btn mvu-btn-edit" data-mvu-act="edit-rule" data-key="&#36;201" type="button" title="修改规则">改</button>
+            <button class="mvu-btn mvu-btn-toggle" data-mvu-act="toggle-rule" data-key="&#36;201" data-state="&#36;202" type="button" title="停用 / 启用">&#36;204</button>
+            <button class="mvu-btn mvu-btn-del" data-mvu-act="del-rule" data-key="&#36;201" type="button" title="删除该规则">×</button>
+          </span>
+        </li>
+      </template></ul>
+      <ul class="mvu-pending" data-mvu-list="/规则列表/待生效" data-mvu-empty="暂无待生效变更"><template>
+        <li class="mvu-rule mvu-rule-pending">
+          <span class="mvu-rule-txt">&#36;203</span>
+          <span class="mvu-rule-state mvu-state-pending">待生效</span>
+        </li>
+      </template></ul>
+    </div>
+  </details>
+
+  <details class="mvu-fold" open>
+    <summary class="mvu-sec">
+      <span class="mvu-caret"></span>
+      <span class="mvu-num">2</span><span class="mvu-sec-title">角色档案</span>
+      <span class="mvu-dim">在场置顶 · 在场自动展开</span>
+      <span class="mvu-rule-line"></span>
+    </summary>
+    <div class="mvu-fold-body">
+      <div class="mvu-files" data-mvu-list="/档案卡" data-mvu-empty="尚无角色档案"><template>
+        <details class="mvu-file">
+          <summary class="mvu-file-head">
+            <span class="mvu-caret"></span>
+            <span class="mvu-name">&#36;401</span>
+            <span class="mvu-dot &#36;411"></span>
+            <span class="mvu-sp"></span>
+            <span class="mvu-dim">&#36;412</span>
+            <button class="mvu-btn mvu-btn-del" data-mvu-act="del-file" data-key="&#36;401" type="button" title="删除该档案">×</button>
+          </summary>
+          <div class="mvu-file-body">
+
+            <!-- 大边框：顶部身份 / 左下标签 / 右下数值（竖分隔线，四行数值与三行标签逐行对齐，7:3） -->
+            <div class="hdr-box">
+              <div class="mvu-field">年龄 <span>&#36;402</span>，三围 <span>&#36;403(&#36;404)-&#36;405-&#36;406</span>，<span class="mvu-rel">&#36;409</span></div>
+              <div class="sep"></div>
+              <div class="hdr-split">
+                <div class="tl tl-1"><span class="k">状态</span><div class="mvu-tags tag-stat" data-tags="&#36;425" data-hot="off"></div></div>
+                <div class="axv axv-1">
+                  <div class="ax"><span class="lb">好感度</span><span class="v mvu-ax-fav">&#36;418</span></div>
+                  <div class="bar"><i class="mvu-ax-fav" style="width:&#36;418%"></i></div>
+                </div>
+                <div class="tl tl-2"><span class="k">性经验</span><div class="mvu-tags tag-exp" data-tags="&#36;419" data-hot="off"></div></div>
+                <div class="axv axv-2">
+                  <div class="ax"><span class="lb">发情度</span><span class="v mvu-ax-lust">&#36;423</span></div>
+                  <div class="bar"><i class="mvu-ax-lust" style="width:&#36;423%"></i></div>
+                </div>
+                <div class="tl tl-3 tl-sep"><span class="k">性癖</span><div class="mvu-tags tag-fet" data-tags="&#36;413" data-hot="off"></div></div>
+                <div class="axv axv-3">
+                  <div class="ax"><span class="lb">高潮度</span><span class="v mvu-ax-peak">&#36;424</span></div>
+                  <div class="bar"><i class="mvu-ax-peak" style="width:&#36;424%"></i></div>
+                </div>
+                <div class="axv axv-4">
+                  <div class="ax"><span class="lb">射精度</span><span class="v mvu-ax-ejac">&#36;426</span></div>
+                  <div class="bar"><i class="mvu-ax-ejac" style="width:&#36;426%"></i></div>
+                </div>
+                <i class="vline" aria-hidden="true"></i>
+              </div>
+            </div>
+
+            <div class="mvu-field tmp">当前内心：<span>&#36;421</span></div>
+            <div class="mvu-field">人物介绍：<span>&#36;407</span></div>
+            <div class="mvu-field">当前着装：<span>&#36;408</span></div>
+            <div class="mvu-field">最近交互：<span>&#36;410</span></div>
+            <div class="mvu-bodyset">
+              <div class="mvu-bodygrid">
+                <div class="mvu-cell">🍒 <span class="lb">胸部</span> <span>&#36;414</span></div>
+                <div class="mvu-cell">🍑 <span class="lb">臀部</span> <span>&#36;415</span></div>
+                <div class="mvu-cell">🌸 <span class="lb">小穴</span> <span>&#36;416</span></div>
+                <div class="mvu-cell">🌼 <span class="lb">菊穴</span> <span>&#36;417</span></div>
+              </div>
+            </div>
+
+          </div>
+        </details>
+      </template></div>
+    </div>
+  </details>
+
+  <div class="mvu-foot">&#36;4</div>
+</div>
+
+<style>
+.mvu-panel {
+  --mvu-line: rgba(120,190,255,.22);
+  --mvu-line2: rgba(120,190,255,.12);
+  --mvu-text: #E6F0FF;
+  --mvu-dim: #A9C8E8;
+  --mvu-mute: #6E8CB0;
+  --mvu-cyan: #4FE3FF;
+  --mvu-violet: #7C6BFF;
+  --mvu-warn: #FAD778;
+  --mvu-frame: rgba(126,224,200,.36);
+  --mvu-frame-bg: rgba(126,224,200,.06);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 576px;
+  margin: 10px auto;
+  padding: 14px;
+  border-radius: 16px;
+  color: var(--mvu-text);
+  font-family: "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 19px;            /* R25：原 15px +4px */
+  line-height: 1.6;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  border: 1px solid var(--mvu-line);
+  background: linear-gradient(155deg, #0B1A33 0%, #10265A 45%, #060B18 100%);
+  box-shadow: 0 0 34px rgba(30,120,255,.2);
+}
+.mvu-panel * { box-sizing: border-box; }
+.mvu-panel p { margin: 0; }
+
+.mvu-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--mvu-line); }
+.mvu-title { font-size: 21px; font-weight: 700; letter-spacing: .12em; color: #EAF1FF; text-shadow: 0 0 14px rgba(126,168,255,.35); }
+.mvu-sub { display: none; margin-top: 2px; font-size: 17px; color: var(--mvu-mute); }
+.mvu-counts { display: flex; flex-direction: row; align-items: center; gap: 6px; flex: 0 0 auto; }
+.mvu-count { font-size: 17px; color: var(--mvu-mute); padding: 1px 8px; border: 1px solid var(--mvu-line); border-radius: 999px; background: rgba(120,190,255,.07); white-space: nowrap; }
+.mvu-count b { color: var(--mvu-cyan); font-variant-numeric: tabular-nums; }
+
+/* 段落折叠（规则列表 / 角色档案） */
+.mvu-fold { margin: 12px 0 0; }
+.mvu-sec { display: flex; align-items: center; gap: 7px; margin: 0; }
+.mvu-fold > summary.mvu-sec { padding: 5px 7px; border-radius: 9px; background: rgba(255,255,255,.05); cursor: pointer; list-style: none; }
+.mvu-fold > summary.mvu-sec::-webkit-details-marker { display: none; }
+.mvu-fold > summary.mvu-sec::marker { content: none; }
+.mvu-fold > summary.mvu-sec:hover { background: rgba(120,190,255,.1); }
+.mvu-fold[open] > summary.mvu-sec { background: rgba(120,190,255,.13); }
+.mvu-fold-body { padding: 8px 2px 2px; }
+.mvu-caret { width: 0; height: 0; flex: none; border-left: 5px solid var(--mvu-cyan);
+             border-top: 4px solid transparent; border-bottom: 4px solid transparent; transition: transform .16s ease; }
+.mvu-fold[open] > summary.mvu-sec .mvu-caret { transform: rotate(90deg); }
+.mvu-num { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; background: rgba(79,227,255,.16); color: var(--mvu-cyan); flex: none; }
+.mvu-sec-title { font-size: 18px; font-weight: 600; letter-spacing: .08em; color: #CFE0FF; }
+.mvu-rule-line { flex: 1 1 auto; height: 1px; background: linear-gradient(90deg, var(--mvu-line), transparent); }
+.mvu-dim { font-size: 17px; color: var(--mvu-mute); }
+.mvu-chip { padding: 0 7px; border-radius: 999px; font-size: 16px; border: 1px solid var(--mvu-line); color: var(--mvu-dim); }
+.mvu-chip-warn { color: var(--mvu-warn); border-color: rgba(250,215,120,.4); background: rgba(250,215,120,.08); }
+.mvu-sp { flex: 1; }
+
+.mvu-rules, .mvu-pending { list-style: none; margin: 0 0 6px; padding: 0; }
+.mvu-rule { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 9px; margin-bottom: 5px; border: 1px solid var(--mvu-line); border-radius: 9px; background: rgba(255,255,255,.05); }
+.mvu-rule-pending { border-color: rgba(250,215,120,.45); }
+.mvu-rule-input { gap: 5px; border-color: rgba(79,227,255,.5); background: rgba(6,9,18,.7); }
+.mvu-rule-txt { flex: 1 1 auto; min-width: 0; font-size: 18px; color: var(--mvu-text); }
+.mvu-rule-acts { display: flex; gap: 4px; flex: none; align-items: baseline; }
+.mvu-btn-edit, .mvu-btn-toggle { padding: 0 6px; }
+.mvu-rule-state { flex: none; font-size: 17px; color: var(--mvu-mute); }
+.mvu-state-生效 { color: var(--mvu-cyan); }
+.mvu-state-停用 { color: var(--mvu-mute); }
+.mvu-state-pending, .mvu-state-待生效 { color: var(--mvu-warn); }
+.mvu-state-待删除 { color: var(--mvu-warn); }
+
+/* 归档列表
+   R26 高度控制：容器必须**至少装得下一张完整展开的档案卡**。
+   实测（19px 基准字号 / 576px 宽）单张展开卡 ≈ 610–800px（长文本换行越多越高），
+   故桌面宽度下限取 880px；面板变窄时文字换行变多、卡片更高，用下面的断点逐级抬起下限。
+   上限 min(88vh, 1240px) 以免大屏上无限拉长。原值 360px 只能露出半张卡。 */
+.mvu-files { max-height: max(880px, min(88vh, 1240px)); overflow-y: auto; padding: 7px; border: 1px solid var(--mvu-line2); border-radius: 10px; background: rgba(6,9,18,.55); }
+.mvu-file { margin-bottom: 5px; border: 1px solid rgba(95,94,90,.55); border-radius: 11px; background: rgba(255,255,255,.045); overflow: hidden; }
+.mvu-file-head { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 0; background: rgba(255,255,255,.05); cursor: pointer; list-style: none; }
+.mvu-file-head::-webkit-details-marker { display: none; }
+.mvu-file-head::marker { content: none; }
+.mvu-file[open] > .mvu-file-head { background: rgba(120,190,255,.13); border-bottom: 1px solid var(--mvu-line2); }
+.mvu-file[open] > .mvu-file-head .mvu-caret { transform: rotate(90deg); }
+.mvu-file-body { padding: 8px 7px 7px; font-size: 17px; line-height: 1.7; color: var(--mvu-dim); }
+.mvu-name { font-size: 18px; font-weight: 600; color: #EAF1FF; }
+.mvu-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.mvu-dot-on { background: var(--mvu-cyan); box-shadow: 0 0 8px var(--mvu-cyan); }
+.mvu-dot-off { border: 1px solid var(--mvu-mute); }
+.mvu-rel { color: #FFD9A8; }
+
+/* 字段框 */
+.mvu-field {
+  border: 1px solid var(--mvu-frame);
+  background: var(--mvu-frame-bg);
+  border-radius: 11px;
+  padding: 4px 10px;
+  font-size: 16.5px;          /* 原 12.5 +4 */
+  line-height: 1.62;
+  color: var(--mvu-dim);
+  margin-bottom: 7px;
+}
+.mvu-field:last-child { margin-bottom: 0; }
+.mvu-field > .lb { color: #C4DCF5; }
+
+/* R25：临时字段用虚线描边 + 淡红底，与长期字段（实线薄荷青）区分；
+   离场时由规则要求清空，不再残留 */
+.mvu-field.tmp { border-style: dashed; border-color: rgba(255,138,155,.45); background: rgba(255,138,155,.05); }
+.mvu-mind { color: #FFD9A8; font-style: italic; }
+.mvu-mind > .lb { color: #FFD9A8; font-style: italic; }
+
+/* R25：大边框三分 —— 顶部身份 / 左下标签 / 右下数值 */
+.hdr-box { border: 1px solid var(--mvu-frame); background: var(--mvu-frame-bg);
+  border-radius: 11px; padding: 8px 10px; margin-bottom: 7px; }
+.sep { height: 1px; background: linear-gradient(90deg, rgba(120,190,255,.12), transparent); margin: 8px 0; }
+
+/* 7 : 3 两列；中间竖分隔线；两区共享同一套行（行高 42px 起，内容更高时自动增高）。
+   R31 提醒：**绝不要**把行高写死成 repeat(3, 42px) —— 标签换行时行内容会溢出到下一行，
+   视觉上就是「状态芯片压住下面的行」。grid-auto-rows 的 auto 是防重叠的关键。 */
+/* R27：标签区与数值区放进**同一个 grid**，逐行共享行高 —— 标签换行时右侧数值仍与左侧行对齐。
+   旧做法是左右各一个 grid + repeat(3,42px)，标签一换行左区就自己变高、右区不跟随，逐行错位。 */
+.hdr-split { display: grid; grid-template-columns: minmax(0, 7fr) 1px minmax(0, 3fr); grid-auto-rows: minmax(36px, auto); align-items: center; }
+/* R32：数值区 4 行 —— 左列标签与右侧数值显式占行，禁用自动排版 */
+.hdr-split > .tl-1 { grid-row: 1; }
+.hdr-split > .tl-2 { grid-row: 2 / span 2; }
+.hdr-split > .tl-3 { grid-row: 4; }
+.hdr-split > .axv-1 { grid-row: 1; }
+.hdr-split > .axv-2 { grid-row: 2; }
+.hdr-split > .axv-3 { grid-row: 3; }
+.hdr-split > .axv-4 { grid-row: 4; }
+.hdr-split > .tl { grid-column: 1; min-width: 0; padding-right: 12px; }
+.hdr-split > .axv { grid-column: 3; min-width: 0; padding-left: 12px; }
+.hdr-split > .vline { grid-column: 2; grid-row: 1 / -1; align-self: stretch; background: rgba(120,190,255,.30); }
+
+.tl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* 抬头固定宽保证行首对齐；R32：下方 4 行数值、左列 3 行标签，宽度仍取 58px（「性经验」三字） */
+.tl .k { flex: none; width: 58px; font-size: 15.5px; color: var(--mvu-mute); letter-spacing: .06em; }
+
+/* 数值：竖排三行，每行「抬头 + 数值 + 进度条」 */
+.axv { display: flex; flex-direction: column; justify-content: center; height: 100%; min-width: 0; }
+.ax { display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  font-size: 15.5px; color: var(--mvu-dim); margin-bottom: 3px; }
+.ax .lb { color: #C4DCF5; }
+.ax .v { font-variant-numeric: tabular-nums; font-weight: 700; }
+.bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,.09); overflow: hidden; }
+.bar > i { display: block; height: 7px; border-radius: 999px; }
+/* R21.1 铁律：数值 span 与进度条填充绝不能同色（同色字压同色底 → 数字隐形），
+   故 .v 只染文字色，i 只染背景色，两条互斥规则分开写 */
+.ax .v.mvu-ax-fav { color: #4FE3FF; }
+.ax .v.mvu-ax-lust { color: #FF7BA8; }
+.ax .v.mvu-ax-peak { color: #FF8A3D; }
+.ax .v.mvu-ax-ejac { color: #B39DFF; }
+.bar > i.mvu-ax-fav { background: #4FE3FF; }
+.bar > i.mvu-ax-lust { background: #FF7BA8; }
+.bar > i.mvu-ax-peak { background: #FF8A3D; }
+.bar > i.mvu-ax-ejac { background: #B39DFF; }
+
+/* 芯片：由 paintTags 依据 data-tags 生成 .mvu-tag */
+/* R31：行内换行用 row-gap 明确留白；芯片自身不得撑破列宽（超长文本在芯片内折行）
+   —— 真机症状是标签换行后压到下一行（「重叠」）。 */
+.mvu-tags { display: flex; flex-wrap: wrap; gap: 5px 6px; align-items: center; align-content: center; min-width: 0; }
+.mvu-tag { font-size: 15px; line-height: 1.6; padding: 1px 10px; border-radius: 999px; max-width: 100%;
+  overflow-wrap: anywhere; word-break: break-word;
+  border: 1px solid rgba(120,190,255,.28); background: rgba(120,190,255,.1); color: #BFD8F2; }
+.mvu-tag-hot { border-color: rgba(255,123,168,.5); background: rgba(255,123,168,.14); color: #FFC4D8; }
+/* R25：三类标签底色三色分开，一眼可分；性癖已去掉爱心图标 */
+.tag-stat .mvu-tag { border-color: rgba(120,190,255,.38); background: rgba(120,190,255,.16); color: #CFE4FF; }
+.tag-exp .mvu-tag { border-color: rgba(111,224,176,.46); background: rgba(111,224,176,.15); color: #C8F6E2; }
+.tag-fet  .mvu-tag { border-color: rgba(216,180,255,.40); background: rgba(216,180,255,.16); color: #EFE3FF; }
+
+/* 部位四格 */
+.mvu-bodyset { border: 1px solid var(--mvu-frame); background: rgba(126,224,200,.05); border-radius: 11px; padding: 6px; margin-bottom: 7px; }
+.mvu-bodyset:last-child { margin-bottom: 0; }
+.mvu-bodygrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.mvu-cell { border: 1px solid rgba(120,190,255,.14); background: rgba(255,255,255,.055); border-radius: 8px; padding: 4px 8px; font-size: 16.5px; line-height: 1.6; color: #D9C6F2; }
+.mvu-cell > .lb { color: #EADCFF; font-weight: 600; }
+
+.mvu-btn { flex: none; font: inherit; font-size: 17px; line-height: 1.5; color: var(--mvu-dim); background: rgba(120,190,255,.1); border: 1px solid var(--mvu-line); border-radius: 7px; padding: 1px 7px; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.mvu-btn:hover { background: rgba(79,227,255,.2); color: #EAF1FF; border-color: rgba(79,227,255,.55); }
+.mvu-btn-add { color: var(--mvu-cyan); border-color: rgba(79,227,255,.4); }
+.mvu-btn-del { padding: 0 5px; font-size: 18px; line-height: 1.35; color: var(--mvu-mute); border-color: rgba(120,190,255,.22); }
+.mvu-btn-del:hover { color: #FFCFD6; background: rgba(255,120,140,.18); border-color: rgba(255,140,160,.5); }
+.mvu-input { flex: 1 1 auto; min-width: 0; font: inherit; font-size: 18px; color: var(--mvu-text); background: rgba(6,9,18,.7); border: 1px solid rgba(79,227,255,.45); border-radius: 7px; padding: 3px 7px; }
+.mvu-input::placeholder { color: var(--mvu-mute); }
+.mvu-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 99; padding: 6px 14px; border-radius: 999px; font-size: 18px; color: #EAF1FF; background: rgba(16,38,90,.95); border: 1px solid rgba(79,227,255,.5); box-shadow: 0 4px 20px rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+.mvu-toast-on { opacity: 1; }
+
+.mvu-foot { display: none; margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--mvu-line2); font-size: 17px; line-height: 1.55; color: var(--mvu-mute); }
+.mvu-empty { padding: 9px 4px; font-size: 17px; font-style: italic; color: var(--mvu-mute); text-align: center; }
+.mvu-files > .mvu-empty { text-align: center; }
+
+/* 面板窄于 576px 上限时文字换行变多、单卡更高，逐级抬起下限，保证首卡仍完整 */
+@media (max-width: 620px) {
+  .mvu-files { max-height: max(950px, min(92vh, 1300px)); }
+}
+
+@media (max-width: 480px) {
+  .mvu-panel { padding: 12px 11px 10px; font-size: 18.5px; }
+  /* 身体四格变单列，单张卡再高一截 */
+  .mvu-files { max-height: max(1020px, min(94vh, 1360px)); }
+  .mvu-bodygrid { grid-template-columns: 1fr; }
+  /* 窄屏改上下：三类标签在上、三条数值在下（order 把同类聚到一起） */
+  .hdr-split { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .hdr-split > .tl, .hdr-split > .axv { grid-row: auto; }
+  .hdr-split > .tl { grid-column: 1; order: 1; padding-right: 0; }
+  .hdr-split > .axv { grid-column: 1; order: 2; padding-left: 0; padding-top: 6px; }
+  .hdr-split > .tl-sep { border-bottom: 1px solid rgba(120,190,255,.30); padding-bottom: 6px; }
+  .hdr-split > .vline { display: none; }
+}
+</style>

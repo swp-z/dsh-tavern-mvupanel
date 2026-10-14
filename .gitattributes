@@ -1,0 +1,8 @@
+# 统一用 LF：仓库里的文件都是文本（源码、面板资源、文档），Windows / macOS 检出行为一致
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.gif binary
+*.zip binary

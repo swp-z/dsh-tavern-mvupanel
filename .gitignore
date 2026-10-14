@@ -1,0 +1,36 @@
+# 依赖与构建（本插件零依赖、无构建步骤，留着以防将来）
+node_modules/
+.pnpm-store/
+
+# DSH / Tavern 运行数据：绝不进仓库
+profiles/
+profile-data/
+sessions/
+storages/
+logs/
+
+# 插件自己的运行数据
+options.json
+managed.json
+backups/
+exports/
+logs/
+.staging/
+.tavern-entry.mjs
+
+# 本地状态与缓存
+config.json
+state.json
+*.local.json
+*.bak
+*.bak-*
+*.tmp
+*.tmp-*
+*~
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
