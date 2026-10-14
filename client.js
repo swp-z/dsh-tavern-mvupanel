@@ -28,6 +28,7 @@ window.__ModuleLoader__.load({
 			["overwriteManaged", "覆盖已存在的 MVU 卡", "开 = 导入同名卡时直接覆盖已有「X mvu版.json」；关 = 拒绝覆盖并提示（更安全）"],
 			["hideInitvar", "隐藏开场初值（省 token）", "用 promptOnly 正则把 <initvar> 挡在模型上下文之外，初始化仍照常发生"],
 			["selfread", "前台兜底自读指令", "面板注入失效时的后备通道；常驻前台，每轮多约 545 字符，默认关"],
+			["dedupeWorldbook", "世界书去重（省 token）", "停用与人物卡 description / personality 逐行重复的常驻世界书条目：内容与触发词都不动，只把 enabled 置为关，每轮省下它们的字数"],
 		];
 
 		const S = {
