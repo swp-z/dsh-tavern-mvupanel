@@ -83,6 +83,7 @@
         <details class="mvu-file">
           <summary class="mvu-file-head">
             <span class="mvu-caret"></span>
+            <span class="mvu-av"><img class="mvu-avimg" alt=""><b class="mvu-avph"></b></span><span class="mvu-avzoom"><img class="mvu-avfull" alt=""></span>
             <span class="mvu-name">&#36;401</span>
             <span class="mvu-dot &#36;411"></span>
             <span class="mvu-sp"></span>
@@ -225,6 +226,25 @@
 .mvu-file[open] > .mvu-file-head { background: rgba(120,190,255,.13); border-bottom: 1px solid var(--mvu-line2); }
 .mvu-file[open] > .mvu-file-head .mvu-caret { transform: rotate(90deg); }
 .mvu-file-body { padding: 8px 7px 7px; font-size: 17px; line-height: 1.7; color: var(--mvu-dim); }
+.mvu-file > .mvu-file-head { flex-wrap: wrap; row-gap: 5px; padding-top: 7px; padding-bottom: 7px; }
+.mvu-av { flex: none; position: relative; width: 62px; height: 62px; border-radius: 9px; overflow: hidden; border: 1px solid var(--mvu-line); background: rgba(120,190,255,.14); }
+.mvu-avimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; display: none; }
+.mvu-av.ok .mvu-avimg { display: block; }
+.mvu-avph { display: none; }
+.mvu-av.none { display: none; }
+.mvu-noav .mvu-av { display: none; }
+/* 悬停放大：整张图浮在行的右侧，不改变行高 */
+.mvu-av { cursor: zoom-in; }
+.mvu-file:hover, .mvu-file:hover > .mvu-file-head { overflow: visible; }
+.mvu-file:hover { position: relative; z-index: 40; }
+.mvu-file > .mvu-file-head { position: relative; }
+.mvu-avzoom { display: none; position: absolute; top: calc(100% + 6px); left: 2px; z-index: 60; padding: 5px; border-radius: 11px;
+  /* 贴在面板内浮出：不推宽面板，也不产生横向滚动条 */
+  background: rgba(9,13,20,.97); border: 1px solid var(--mvu-line); box-shadow: 0 12px 30px rgba(0,0,0,.6); pointer-events: none; }
+.mvu-av:hover + .mvu-avzoom { display: block; }
+.mvu-avfull { display: block; max-width: min(330px, 78%); max-height: 340px; width: auto; height: auto; border-radius: 7px; }
+.mvu-noav .mvu-avzoom { display: none !important; }
+.mvu-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mvu-name { font-size: 18px; font-weight: 600; color: #EAF1FF; }
 .mvu-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
 .mvu-dot-on { background: var(--mvu-cyan); box-shadow: 0 0 8px var(--mvu-cyan); }
@@ -372,6 +392,152 @@ function replaceText(root,lookup){const stop=(root&&root.nodeType===1&&root.clas
 function elementsIn(scope){const out=[];if(scope.nodeType===1){out.push(scope);out.push.apply(out,[].slice.call(scope.querySelectorAll('*')));}else if(scope.nodeType===11||scope.nodeType===9){out.push.apply(out,[].slice.call(scope.querySelectorAll('*')));}return out;}
 function replaceAttrs(scope,lookup){const stop=(scope&&scope.nodeType===1&&scope.classList&&scope.classList.contains('mvu-panel'))?scope:null;const els=elementsIn(scope);for(const el of els){if(isInList(el,stop))continue;for(const at of [].slice.call(el.attributes||[])){if(at.name.indexOf('data-mvu')===0)continue;if(at.__mvuSrc===undefined)at.__mvuSrc=at.value;if(SLOT_TEST.test(at.__mvuSrc))at.value=at.__mvuSrc.replace(SLOT,function(_,id){return lookup(Number(id))||'';});}}}
 function hashHue(s){var h=2166136261;for(var i=0;i<s.length;i++){h=(h^s.charCodeAt(i))*16777619;h=h>>>0;}return h-360*Math.floor(h/360);}
+/* mvu-avatars-v6：按本地目录的相对 URL 取图；空表整块隐藏；
+   变体同义词 + 来源优先级（状态 > 着装 > 数值轴；同来源内命中词多者优先）+ 穿衣语义（赤裸判定 / 褪脱推撩不算穿着） */
+window.__mvuAvatars={};
+var MVU_AV_AXES=[["高潮","高潮度"],["发情","发情度"]];
+var MVU_AV_SOURCES=[["状态",3],["当前着装",2]];
+// 这些词只认「赤裸判定」，不在着装文本里做子串匹配（否则「赤裸上衣」会被当成全裸）
+var MVU_AV_NUDE_TOKENS=["裸","赤裸","全裸","无衣","裸身","赤身"];
+// 明确的全裸/赤身表达
+var MVU_AV_NUDE_FULL=/一丝不挂|身无寸缕|未着寸缕|赤身裸体|赤条条|全裸|赤裸着身子|光着身子|不着一缕|裸身|露着肚皮|露出肚皮/;
+// 半裸/只裸上半身：不算全裸
+var MVU_AV_NUDE_PART=/半裸|赤裸上[身半衣胴]|光着上[身半衣胴]|露着上[身半衣胴]|裸着上[身半衣胴]/;
+// 衣物「不在身上」的提示词：褪/脱/滑落/落在榻边/搁在臂弯/被推到腰上…
+var MVU_AV_REMOVED=/褪|脱|解|扯|撕|滑落|滑到|落到|推到|拉到|扯到|掀|撩|卷到|勾|挂|搭在|堆在|搁在|放在|丢在|扔在|散落|旁边|侧畔|一侧|臂弯|榻上|榻边|脚下|敞开|松开|剥离|剥下|未着|没穿|不着|没有穿/;
+var MVU_AV_CLAUSE_SPLIT=/[，,。；;、！!？?\n]+/;
+
+function mvuAvatarIsNude(text){
+  var t=String(text||"");
+  if(!t)return false;
+  if(MVU_AV_NUDE_FULL.test(t))return true;
+  if(MVU_AV_NUDE_PART.test(t))return false;
+  return /赤裸|裸着|光着/.test(t);
+}
+function mvuAvatarClauses(text){
+  return String(text||"").split(MVU_AV_CLAUSE_SPLIT).map(function(s){return s.trim();}).filter(Boolean);
+}
+/** 这个词是否「穿在身上」：同一分句出现这个词，且该分句没有褪/脱/落下之类的提示。 */
+function mvuAvatarWorn(text, token){
+  var clauses=mvuAvatarClauses(text);
+  for(var i=0;i<clauses.length;i++){
+    if(clauses[i].indexOf(token)>=0 && !MVU_AV_REMOVED.test(clauses[i]))return true;
+  }
+  return false;
+}
+function mvuAvatarRankOf(field){
+  for(var i=0;i<MVU_AV_SOURCES.length;i++){if(MVU_AV_SOURCES[i][0]===field)return MVU_AV_SOURCES[i][1];}
+  return 0;
+}
+function mvuAvatarSourceTexts(card){
+  var out=[];
+  if(!card||typeof card!=="object")return out;
+  var cloth=card["当前着装"];
+  var clothText=typeof cloth==="string"?cloth:(Array.isArray(cloth)?cloth.join(" "):"");
+  if(clothText&&mvuAvatarIsNude(clothText)){
+    out.push({rank:mvuAvatarRankOf("当前着装"),label:"当前着装·裸",text:"裸 赤裸 全裸 无衣",mode:"nude"});
+  }else if(clothText){
+    out.push({rank:mvuAvatarRankOf("当前着装"),label:"当前着装",text:clothText,mode:"garment"});
+  }
+  var st=card["状态"];
+  var stText=typeof st==="string"?st:(Array.isArray(st)?st.join(" "):"");
+  if(stText)out.push({rank:mvuAvatarRankOf("状态"),label:"状态",text:stText,mode:"plain"});
+  var axis=[];
+  for(var q=0;q<MVU_AV_AXES.length;q++){if(Number(card[MVU_AV_AXES[q][1]])>=80)axis.push(MVU_AV_AXES[q][0]);}
+  if(axis.length)out.push({rank:1,label:"数值轴",text:axis.join(" "),mode:"plain"});
+  return out;
+}
+function mvuAvatarTokenHit(source,token){
+  if(source.mode!=="garment")return source.text.indexOf(token)>=0;
+  return mvuAvatarWorn(source.text,token);
+}
+function mvuAvatarPick(name,card){
+  var map=window.__mvuAvatars||{};var raw=String(name||"").trim();if(!raw)return {url:"",text:""};
+  var keys=Object.keys(map);if(!keys.length)return {url:"",text:""};
+  var noParen=raw.replace(/[（(][^）)]*[）)]/g,"").trim();
+  var cands=[raw,noParen,raw.replace(/[\s\u3000]+/g,""),noParen.replace(/[\s\u3000]+/g,"")];
+  var entry="";
+  for(var i=0;i<cands.length;i++){var c=cands[i];if(c&&map[c]){entry=map[c];break;}}
+  if(!entry){for(var j=0;j<keys.length;j++){if(raw.indexOf(keys[j])>=0){entry=map[keys[j]];break;}}}
+  if(!entry)return {url:"",base:"",text:""};
+  if(typeof entry==="string")return {url:entry,base:entry,text:"(旧式单图)"};
+  var sources=mvuAvatarSourceTexts(card);
+  var summary=sources.map(function(s){return s.label+"「"+s.text.slice(0,24)+"」";}).join(" ");
+  var variants=Object.keys(entry).filter(function(k){return k&&entry[k];});
+  var bestKey="",bestRank=0,bestCnt=0,bestHits=0,bestLen=0,bestWords="";
+  for(var v=0;v<variants.length;v++){
+    var key=variants[v];var toks=String(key).split(/[.．·,，|/、]+/);
+    var rank=0,hits=0,maxLen=0,words=[];
+    for(var s=0;s<sources.length;s++){
+      var hit=false;
+      for(var t=0;t<toks.length;t++){
+        var tok=toks[t].trim();if(!tok)continue;
+        if(sources[s].mode==="garment"&&MVU_AV_NUDE_TOKENS.indexOf(tok)>=0)continue;
+        if(mvuAvatarTokenHit(sources[s],tok)){hit=true;if(tok.length>maxLen)maxLen=tok.length;if(words.indexOf(tok)<0)words.push(tok);}
+      }
+      if(hit){hits++;if(sources[s].rank>rank)rank=sources[s].rank;}
+    }
+    if(!hits)continue;
+    var cnt=words.length;
+    var better=rank>bestRank
+      ||(rank===bestRank&&(cnt>bestCnt||(cnt===bestCnt&&(hits>bestHits||(hits===bestHits&&maxLen>bestLen)))));
+    if(better){bestKey=key;bestRank=rank;bestCnt=cnt;bestHits=hits;bestLen=maxLen;bestWords=words.join("+");}
+  }
+  if(bestKey)return {url:entry[bestKey],base:entry[""]||"",text:summary+" 〔命中 "+bestWords+" → "+bestKey+"〕"};
+  return {url:entry[""]||"",base:entry[""]||"",text:summary+" 〔无变体命中，用基础图〕"};
+}
+function paintAvatars2(panel){
+  try{
+    var map=window.__mvuAvatars||{};var empty=!Object.keys(map).length;
+    if(panel&&panel.classList){if(empty)panel.classList.add("mvu-noav");else panel.classList.remove("mvu-noav");}
+    var list=panel.querySelectorAll("img.mvu-avimg");
+    var cards=[];
+    try{var d=Mvu.getMvuData({type:"message",message_id:"latest"});var data=(d&&d.stat_data)||{};cards=Array.isArray(data["档案卡"])?data["档案卡"]:[];}catch(e0){cards=[];}
+    for(var i=0;i<list.length;i++){
+      var img=list[i];var box=img.parentElement;var host=box&&box.parentElement;if(!box||!host){continue;}
+      var nmEl=host.querySelector(".mvu-name");var name=((nmEl&&nmEl.textContent)||"").trim();
+      var card=null;
+      for(var c=0;c<cards.length;c++){var one=cards[c];if(!one){continue;}if(String(one["名字"]||"").trim()===name){card=one;break;}}
+      var picked=name?mvuAvatarPick(name,card):{url:"",base:"",text:""};
+      var url=picked.url||"";
+      var sig=name+"|"+url+"|"+picked.text;
+      if(box._avSig===sig){continue;}
+      box._avSig=sig;
+      if(url){
+        // 变体图取不到（文件被删/未同步）→ 先回退基础图；基础图也取不到 → 整块隐藏，绝不留破图框
+        img.onerror=function(){
+          try{
+            var b=this.parentElement;if(!b)return;
+            var baseUrl=picked.base||"";
+            if(this.getAttribute("data-avfb")!=="1"&&baseUrl&&baseUrl!==this.getAttribute("src")){
+              this.setAttribute("data-avfb","1");
+              this.src=baseUrl;
+              if(b.title)b.title=b.title+"（变体图缺失→回退基础图）";
+              return;
+            }
+            b.classList.remove("ok");b.classList.add("none");
+            if(b.title)b.title=b.title+"（图片取不到）";
+          }catch(e2){}
+        };
+        img.onload=function(){try{var b=this.parentElement;if(b){b.classList.add("ok");b.classList.remove("none");}}catch(e3){}};
+        img.removeAttribute("data-avfb");
+        img.src=url;box.classList.add("ok");box.classList.remove("none");
+        try{var z=host.querySelector("img.mvu-avfull");if(z)z.src=url;}catch(e4){}
+      }
+      else{img.removeAttribute("src");box.classList.remove("ok");box.classList.add("none");try{var z=host.querySelector("img.mvu-avfull");if(z)z.removeAttribute("src");}catch(e5){}}
+      try{box.title=name+" ｜ "+picked.text+" → "+(url?decodeURIComponent(url.split("/").pop()):"无匹配（隐藏）");}catch(e1){}
+    }
+  }catch(e){}
+}
+function avatInitAvatars(panel){
+  try{
+    if(!panel||panel._avBound)return;panel._avBound=true;
+    var box=panel.querySelector("[data-mvu-list=\"/档案卡\"]");
+    if(box&&window.MutationObserver){new MutationObserver(function(){paintAvatars2(panel);}).observe(box,{childList:true,subtree:true,characterData:true});}
+    paintAvatars2(panel);
+  }catch(e){}
+}
+
 function paintAvatars(panel){try{var pics=panel.querySelectorAll('.mvu-pic');for(var i=0;i<pics.length;i++){var el=pics[i];var t=(el.textContent||'').trim();if(!t||t==='立绘')continue;var hue=hashHue(t);el.style.color='hsl('+hue+',88%,74%)';el.style.border='1px solid hsla('+hue+',82%,64%,.5)';el.style.background='hsla('+hue+',72%,55%,.16)';el.style.boxShadow='0 0 12px hsla('+hue+',88%,62%,.3)';el.style.fontWeight='700';el.style.fontSize='20px';}}catch(e){}}
 // R21：状态芯片。插槽只能注入文本（nodeValue 会转义 HTML），所以 /档案卡/状态 先由
 // joinList 折成「A、B、C」写进 data-tags，再由本函数拆开生成真正的 <span class="mvu-tag">。
@@ -459,7 +625,7 @@ function fingerprint(state){try{return JSON.stringify([state['计数'],(val(stat
 function readState(){try{const api=mvuApi();const data=(api||Mvu).getMvuData({type:'message',message_id:'latest'});if(!data)return null;if(data.stat_data&&typeof data.stat_data==='object')return data.stat_data;const stem=stemKeys().filter(function(k){return k in data;});if(stem.length){const sd={};stem.forEach(function(k){sd[k]=data[k];});return sd;}return null;}catch(e){return null;}}
 // R17-B：每个实例只渲染**自己的**面板根节点（旧实现一律 querySelector('.mvu-panel')，多实例时会互相画到对方身上）；
 // R17-D：渲染前套一层短时抑制，别的写者即使把刚删的规则写回来，本实例 3 秒内也不会把它画出来（消除「一秒闪现」）。
-function render(){try{var panel=renderRoot();if(!panel)return;const raw=readState();if(!raw)return;tombSeed(raw);const state=applySuppression(deepCopy(raw)||raw);recount(state);sortArchive(state);CUR_STATE=state;ensureTemplates(panel);panel.querySelectorAll('[data-mvu-list]').forEach(function(c){renderList(c,state);});const lookup=lookupFactory(state,GLOBAL);replaceAttrs(panel,lookup);replaceText(panel,lookup);paintAvatars(panel);paintTags(panel);autoExpand(panel,state);LAST=fingerprint(state);}catch(e){}}
+function render(){try{var panel=renderRoot();if(!panel)return;const raw=readState();if(!raw)return;tombSeed(raw);const state=applySuppression(deepCopy(raw)||raw);recount(state);sortArchive(state);CUR_STATE=state;ensureTemplates(panel);panel.querySelectorAll('[data-mvu-list]').forEach(function(c){renderList(c,state);});const lookup=lookupFactory(state,GLOBAL);replaceAttrs(panel,lookup);replaceText(panel,lookup);paintAvatars(panel);paintAvatars2(panel);paintTags(panel);autoExpand(panel,state);LAST=fingerprint(state);}catch(e){}}
 // R13 修复：render() 必须对 readState() 的返回做深拷贝再 recount。
 // 旧实现直接 recount(getMvuData() 的返回对象)，在原地写入 /计数，可能被 MVU 视为一次变量变更，
 // 从而触发 VARIABLE_UPDATE_ENDED → render() → 再改名 → 自激循环。
@@ -917,6 +1083,7 @@ async function start(){
 try{MY_ROOT=findRoot();}catch(e){}   // 同步捕获自己的根节点：此刻 document.currentScript 仍然有效
 start().catch(function(error){console.error('MVU 面板渲染失败',error);});
 })();
+try{var __p=renderRoot();if(__p){avatInitAvatars(__p);setInterval(function(){paintAvatars2(__p);},1500);}}catch(e){}
 </script>
 </body></html>
 ```

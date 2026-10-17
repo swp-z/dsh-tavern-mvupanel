@@ -39,6 +39,7 @@
 | 插件目录 `backups/imported/` | 导入时的原始文件（你上传的那一份） | 仅导入时 |
 | 插件目录 `exports/` | 只有卡片大到超过单次返回上限（约 3.5 MB）时，才把导出结果写到这里 | 仅在你点「导出」时 |
 | 插件目录 `.staging/` | 转换用的临时文件，写完立刻删除 | 导入期间 |
+| 插件目录 `avatar-tmp/<上传 id>/` | 「图片上传」临时落盘的图片，转换完（无论成败）立即删除，不留底；下次启动还会再清扫一次 | 仅在你点「图片上传」时 |
 
 **不写**：Tavern 的程序目录、会话与对话数据、世界书 / 预设 / 剧本、工作台草稿、卡片库索引。
 
@@ -82,3 +83,11 @@ Tavern 的插件接口（第 2 版）目前**没有开放人物卡读写**（文
 浏览器半只用 `tavernUi` 的 `callHost` / `registerPanel` 与 DSH 自带的 `slots`；宿主半只用
 `ctx.tavern.handle` / `ctx.inject` / `ctx.effect` / `ctx.logger`。用到的都是接口文档写明的服务与用法，
 没有改 Tavern 程序文件，没有打补丁。
+
+## R36 新增的读写与子进程
+
+- 读：`<tavern data>/avatar-images/**`（每卡一个子目录，只扫本层图片）、插件 `assets/avatars/**`
+- 写：`<tavern data>/avatar-images/**`（只建目录）、插件 `assets/avatars/**`（硬链接优先，跨盘回退复制，多余的链接会清掉）
+- 监听：`fs.watch(<avatarRoot>, { recursive: true })`，去抖 1.2s 后只同步有变动的卡
+- 子进程：**仅**在点「图片」按钮时 `spawn explorer.exe <该卡图片目录>`（Windows），其它场合不起进程
+- 不联网、不外传任何图片

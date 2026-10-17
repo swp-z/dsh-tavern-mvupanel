@@ -20,6 +20,7 @@ process.env.DSH_MVU_PANEL_CARDS_DIR = path.join(work, 'cards')
 process.env.DSH_MVU_PANEL_ORIGINALS_DIR = path.join(work, 'originals')
 process.env.DSH_MVU_PANEL_BACKUP_DIR = path.join(work, 'backups')
 process.env.DSH_MVU_PANEL_OPTIONS = path.join(work, 'options.json')
+process.env.DSH_MVU_PANEL_LEDGER = path.join(work, 'managed.json')
 fs.mkdirSync(process.env.DSH_MVU_PANEL_CARDS_DIR, { recursive: true })
 
 const lib = await import('file://' + path.join(PLUGIN, 'lib', 'import.mjs').replace(/\\/g, '/'))
@@ -41,7 +42,7 @@ const longText = [
   '被老师点名时会先愣一下，再小声回答。',
   '放学后通常直接回家，很少参加集体活动。',
 ].join('\n')
-// 故意放一条「常驻 + 与 description 逐行重复」的世界书条目：R33 起转换时应把它停用（省 token）
+// 故意放一条「常驻 + 与 description 逐行重复」的世界书条目：R34 起转换时应把它停用（省 token）
 const duplicateEntry = { id: 1, comment: '人物设定（重复）', constant: true, enabled: true, content: longText }
 
 const card = {
@@ -76,7 +77,7 @@ if (fs.existsSync(target)) {
   const record = wrapper.raw.data.extensions.dsh_mvu_conversion
   const fields = Object.keys(record.definition.elementSchema['/档案卡'].fields)
   check('记账 managedBy 指向本插件', record.managedBy === 'dsh-tavern-mvupanel', record.managedBy)
-  check('修订号为 R33', record.panelRevision === 'R33', record.panelRevision)
+  check('修订号为 R38', record.panelRevision === 'R38', record.panelRevision)
   check('档案卡 23 字段', fields.length === 23, fields.length)
   check('含 射精度 与 发情度', fields.includes('射精度') && fields.includes('发情度'))
   check('三条具名正则', wrapper.raw.data.extensions.regex_scripts.map(item => item.id).join(',') === 'dsh-mvu-status-view,dsh-mvu-hide-marker,dsh-mvu-hide-initvar')
@@ -139,7 +140,7 @@ check('列表里不再出现这张卡', survey.managed.length === 0)
 
 // 清理本次运行产生的日志 / 台账 / 暂存
 for (const rel of ['logs', '.staging', 'exports', 'backups']) fs.rmSync(path.join(PLUGIN, rel), { recursive: true, force: true })
-fs.rmSync(path.join(PLUGIN, 'managed.json'), { force: true })
+fs.rmSync(path.join(work, 'managed.json'), { force: true })
 fs.rmSync(work, { recursive: true, force: true })
 
 const failed = checks.filter(item => !item.ok)

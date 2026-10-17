@@ -17,6 +17,8 @@ exports/
 logs/
 .staging/
 .tavern-entry.mjs
+# 头像发布目录：本地生成的硬链接副本，属于用户数据，不进仓库
+assets/avatars/
 
 # 本地状态与缓存
 config.json

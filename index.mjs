@@ -21,8 +21,9 @@ import { PANEL_REVISION } from './lib/artifacts.js'
 import { DERIVED_SUFFIX, cardsDir, pluginRoot } from './lib/cardfile.js'
 import {
   CHUNK_BYTES, MAX_UPLOAD_BYTES, adoptAndSurvey, cardPathOf, deleteLegacySource, deleteManaged,
-  importUpload, exportManaged, logEvent, readLedger, readLogTail, recentEvents, refreshManaged,
+  avatarDir, avatarSync, avatarClear, importUpload, readCardOrganization, exportManaged, logEvent, readLedger, readLogTail, recentEvents, refreshManaged, moveCardsToGroup,
 } from './lib/import.mjs'
+import { sweepLegacy, avatarRootDir } from './lib/avatars.js'
 import { DEFAULT_OPTIONS, functionalSignature, loadOptions, normalizeOptions, saveOptions } from './lib/options.mjs'
 
 export const name = 'dsh-tavern-mvupanel'
@@ -33,6 +34,8 @@ const HANDLE = 'dsh-tavern-mvupanel'
 /** 定时巡检：两件轻活 —— 修订落后就刷新、自己管的卡产物被改掉就补回 */
 const MANAGE_INTERVAL_MS = Math.max(2000, Number(process.env.DSH_MVU_PANEL_INTERVAL_MS) || 5000)
 const CHUNKS_PER_UPLOAD = Math.ceil(MAX_UPLOAD_BYTES / CHUNK_BYTES) + 8
+/** 「图片上传」一次最多几张（每张另有 avatarMaxKB 上限） */
+const MAX_AVATAR_FILES = 24
 
 export function apply(ctx, config = {}) {
   let options = loadOptions(config)
@@ -61,11 +64,14 @@ export function apply(ctx, config = {}) {
       cardsDir: cardsDir(),
       pluginRoot: pluginRoot(),
       ledgerCount: Object.keys(ledger.cards || {}).length,
+      groups: readCardOrganization().groups,
       adopted: survey.adopted,
       managed: survey.managed,
       legacy: survey.legacy,
       events: recentEvents(60),
       limits: { chunkBytes: CHUNK_BYTES, maxUploadBytes: MAX_UPLOAD_BYTES },
+      // 客户端 v8 起靠 row.cover 画宫格封面：旧宿主没有这个字段，用它判断「宿主半还没重启」
+      coverReady: true,
       ...extra,
     }
   }
@@ -110,6 +116,8 @@ export function apply(ctx, config = {}) {
   }
 
   // ── 启动：收养旧产物 + 对齐修订 ──────────────────────────────────────────
+  // 「图片上传」承诺不留底：先把上次异常退出残留的临时图片清掉
+  try { sweepLegacy() } catch { /* 清不掉不影响启动 */ }
   const boot = adoptAndSurvey()
   log('info', `已就绪（模型 R32）：卡片目录 ${cardsDir()} · 台账 ${Object.keys(readLedger().cards || {}).length} 张 · 新收养 ${boot.adopted} 张 · 遗留 ${boot.legacy.length} 张`)
   manageTick('startup')
@@ -223,9 +231,75 @@ export function apply(ctx, config = {}) {
           return { ...result, status: statusPayload() }
         })
 
+
+        // 按卡头像（R36）：图片在本地目录，卡里只写相对 URL —— 图片/同步/清空三个动作
+        register('avatar-dir', async args => {
+        	if (options.enabled === false) throw new Error('插件已在设置里关闭')
+        	const result = avatarDir(String(args && args.key || ''), options)
+        	if (!result.ok) throw new Error(result.error || '打开图片目录失败')
+        	log('info', '已打开图片目录：' + result.dir, { files: result.files })
+        	return { ...result, status: statusPayload() }
+        })
+
+        register('avatar-sync', async args => {
+        	if (options.enabled === false) throw new Error('插件已在设置里关闭')
+        	const result = avatarSync(String(args && args.key || ''), options)
+        	if (!result.ok) throw new Error(result.error || '同步失败')
+        	log('info', '已同步头像：' + String(args && args.key || ''), { names: result.names, skipped: result.skipped })
+        	return { ...result, status: statusPayload() }
+        })
+
+        register('avatar-clear', async args => {
+        	if (options.enabled === false) throw new Error('插件已在设置里关闭')
+        	const result = avatarClear(String(args && args.key || ''), options)
+        	if (!result.ok) throw new Error(result.error || '清空失败')
+        	log('info', '已清空头像引用：' + String(args && args.key || ''), {})
+        	return { ...result, status: statusPayload() }
+        })
+
+        // 批量管理：移动分组（写 Tavern 的 card-organization.json，与人物卡库同一份）
+        register('organize-move', async args => {
+        	const result = moveCardsToGroup(args && args.paths, args && args.group, { createGroup: args && args.createGroup === true })
+        	if (!result.ok) throw new Error(result.error || '移动分组失败')
+        	log('info', '移动分组：' + result.moved + ' 张 → ' + (result.group || '未分组'), { group: result.group })
+        	return { ...result, status: statusPayload() }
+        })
+
+        // 图片目录监听（R36）：某张卡的目录里有变化（新增/覆盖/删除/改名）→ 去抖 1.2s 后只同步那一张卡
+        try {
+        	const root = avatarRootDir(options)
+        	fs.mkdirSync(root, { recursive: true })
+        	let pending = new Set()
+        	let timer = null
+        	const watcher = fs.watch(root, { recursive: true }, (event, name) => {
+        		const stem = String(name || '').split(/[\\/]/)[0]
+        		if (!stem) return
+        		pending.add(stem)
+        		if (timer) clearTimeout(timer)
+        		timer = setTimeout(() => {
+        			const list = [...pending]
+        			pending = new Set()
+        			timer = null
+        			for (const one of list) {
+        				try {
+        					const result = avatarSync(one, options)
+        					if (result.ok) log('info', '图片目录有变动，已自动同步：' + one, { names: result.names, changed: result.changed })
+        					else log('warn', '自动同步跳过：' + one, { error: result.error })
+        				} catch (error) {
+        					log('warn', '自动同步失败：' + one, { error: String(error && error.message || error) })
+        				}
+        			}
+        		}, 1200)
+        	})
+        	log('info', '图片目录监听已启动：' + root)
+        	if (typeof ctx.effect === 'function') ctx.effect(() => () => { try { watcher.close() } catch { /* 忽略 */ } })
+        } catch (error) {
+        	log('warn', '图片目录监听没起来（可以手动点「同步」）', { error: String(error && error.message || error) })
+        }
+
         register('log-tail', async args => ({ lines: readLogTail(Number(args && args.limit) || 200) }))
 
-        log('info', `导入桥已注册：${HANDLE}/{status,set-options,import-begin,import-chunk,import-end,refresh,refresh-file,export,remove,cleanup-source,log-tail}`)
+        log('info', `导入桥已注册：${HANDLE}/{status,set-options,import-begin,import-chunk,import-end,avatar-dir,avatar-sync,avatar-clear,refresh,refresh-file,export,remove,cleanup-source,log-tail}`)
       } catch (error) {
         log('warn', `注册导入桥失败：${String(error && error.message || error)}`)
       }
